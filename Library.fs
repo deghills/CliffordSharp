@@ -5,15 +5,14 @@ open System
 
 [<AutoOpen>]
 module private ByteExtensions =
-    type System.Byte with 
-        member this.Item b = (this >>> b) &&& 1uy = 1uy
-        member this.toBitVectorString =
-            String [|  
-                'e'
-                for i in 0..7 do
-                    if this[i] then
-                        yield! (i + 1).ToString()
-            |]
+    type Byte with 
+        member this.Item b = 1uy = ((this >>> b) &&& 1uy)
+        member this.toBitVectorString = String [|  
+            'e'
+            for i in 0..7 do
+                if this[i] then
+                    yield! (i + 1).ToString()
+        |]
 
     let buildRepunit n =
         let rec aux acc = function
@@ -22,6 +21,10 @@ module private ByteExtensions =
                 let ndecr = i - 1
                 aux (acc ||| (1uy <<< ndecr)) ndecr
         aux n
+
+    let indeces (bld: byte) =
+        [ for i in 0..7 do
+            if bld[i] then yield i ]
 
 module Clifford =
     type ICliffordSignature =
@@ -43,14 +46,10 @@ module Clifford =
             // would be nice to have this make basis n-vectors for all grades, instead of just 1-vectors
 
     [<RequireQualifiedAccess>]
-    type private Blade<'signature when 'signature :> ICliffordSignature> =
-        static member Zero = 0uy, 0f
+    module Blade =
+        let zero = 0uy, 0f
 
-        static member Indeces (bld: byte) =
-            [ for i in 0..7 do
-                if bld[i] then yield i ]
-
-        static member GetPotency (bld: byte) =
+        let potency<'signature when 'signature :> ICliffordSignature> (bld: byte) =
             let rec aux sgn = function
                 | i when bld[i] && i >= Signature.size<'signature> ->
                     failwith "this blade is not valid in this signature"
@@ -68,10 +67,10 @@ module Clifford =
                     aux sgn (i - 1)
             aux 1f 7
 
-        static member SignFromSquares a b =
-            a &&& b |> Blade<'signature>.GetPotency
+        let signFromSquares<'signature when 'signature :> ICliffordSignature> a b =
+            potency<'signature> (a &&& b)
 
-        static member SignFromSwaps a b =
+        let signFromSwaps a b =
             //single mergesort iteration
             let rec inversionCounter lhs rhs acc =
                 match lhs, rhs with
@@ -84,45 +83,45 @@ module Clifford =
                 | _ :: xs, y :: ys -> 
                     inversionCounter xs (y :: ys) acc
 
-            match (inversionCounter (Blade<'signature>.Indeces a) (Blade<'signature>.Indeces b) 0) % 2 with
+            match (inversionCounter (indeces a) (indeces b) 0) % 2 with
             | 0 -> 1f
             | _ -> -1f
 
-        static member Sign a b = (Blade<'signature>.SignFromSquares a b) * (Blade<'signature>.SignFromSwaps a b)
+        let sgn<'signature when 'signature :> ICliffordSignature> a b = (signFromSquares<'signature> a b) * (signFromSwaps a b)
 
-        static member Grade : byte -> int =
+        let grade : byte -> int =
             uint32 >> System.Numerics.BitOperations.PopCount
 
-        static member Dual (bld, mag) =
+        let dual<'signature when 'signature :> ICliffordSignature> (bld, mag) =
             let bld' = (buildRepunit 0uy Signature.size<'signature>) ^^^ bld
-            let sign = Blade<'signature>.SignFromSwaps bld bld'
+            let sign = signFromSwaps bld bld'
             bld', sign * mag
 
-        static member DualInv (bld, mag) =
+        let dualInv<'signature when 'signature :> ICliffordSignature> (bld, mag) =
             let bld' = (buildRepunit 0uy Signature.size<'signature>) ^^^ bld
-            let sign = Blade<'signature>.SignFromSwaps bld' bld
+            let sign = signFromSwaps bld' bld
             bld', sign * mag
 
-        static member Product (bld1, mag1) (bld2, mag2) =
-            bld1 ^^^ bld2, mag1 * mag2 * (Blade<'signature>.Sign bld1 bld2)
+        let product<'signature when 'signature :> ICliffordSignature> (bld1, mag1) (bld2, mag2) =
+            bld1 ^^^ bld2, mag1 * mag2 * (sgn<'signature> bld1 bld2)
 
-        static member Wedge (bld1, mag1) (bld2, mag2) =
+        let wedge<'signature when 'signature :> ICliffordSignature> (bld1, mag1) (bld2, mag2) =
             let areOrthogonal a b = a &&& b = 0uy
             if areOrthogonal bld1 bld2 then
-                Blade<'signature>.Product (bld1, mag1) (bld2, mag2)
+                product<'signature> (bld1, mag1) (bld2, mag2)
             else
-                Blade<'signature>.Zero
+                zero
 
-        static member Dot (bld1, mag1) (bld2, mag2) =
+        let dot<'signature when 'signature :> ICliffordSignature> (bld1, mag1) (bld2, mag2) =
             let areParallel a b =
                 let aOrB = a ||| b
                 aOrB = a (*left contraction*) || aOrB = b (*right contraction*)
             if areParallel bld1 bld2 then
-                Blade<'signature>.Product (bld1, mag1) (bld2, mag2)
+                product<'signature> (bld1, mag1) (bld2, mag2)
             else
-                Blade<'signature>.Zero
+                zero
 
-        static member BilinearCombination f a b =
+        let bilinearCombination f a b =
             Seq.collect (function 
                 KeyValue bld1 ->
                     Seq.map (function 
@@ -147,7 +146,7 @@ module Clifford =
                 (blades 
                 |> Seq.fold
                     (fun acc -> function
-                        |ValidBlade (nextBld, nextMag) ->
+                        | ValidBlade (nextBld, nextMag) ->
                             Map.change
                                 nextBld
                                 (function None -> Some nextMag | Some lastMag -> Some (lastMag + nextMag))
@@ -155,7 +154,7 @@ module Clifford =
                         | _ ->
                             failwith $"this blade is not valid for a clifford algebra of size: {Signature.size<'signature>}")
                     Map.empty 
-                |> Map.filter (fun _ mag -> MathF.Abs mag > System.Single.Epsilon))
+                |> Map.filter (fun _ mag -> MathF.Abs mag > Single.Epsilon))
 
         member _.ToMap = sortedBlades
         member _.ToSeq = Map.toSeq sortedBlades
@@ -166,14 +165,14 @@ module Clifford =
 
         member _.Grade =
             Map.fold
-                (fun acc bld _ -> Set.add (Blade<'signature>.Grade bld) acc)
+                (fun acc bld _ -> Set.add (Blade.grade bld) acc)
                 Set.empty
                 sortedBlades
 
         member _.Reverse =
             Map.map
                 (fun bld mag ->
-                    match Blade<'signature>.Grade bld with
+                    match Blade.grade bld with
                     |2 |3 |6| 7 -> -mag
                     |_ -> mag)
                 sortedBlades
@@ -181,13 +180,13 @@ module Clifford =
 
         member _.Dual =
             Seq.map
-                (function KeyValue(bld, mag) -> Blade<'signature>.Dual (bld, mag))
+                (function KeyValue(bld, mag) -> Blade.dual<'signature> (bld, mag))
                 sortedBlades
             |> Multivector<'signature>
 
         member _.DualInv =
             Seq.map
-                (function KeyValue(bld, mag) -> Blade<'signature>.DualInv (bld, mag))
+                (function KeyValue(bld, mag) -> Blade.dualInv<'signature> (bld, mag))
                 sortedBlades
             |> Multivector<'signature>
 
@@ -211,7 +210,7 @@ module Clifford =
                 )
                 lhs.ToMap
                 rhs.ToMap
-            |> Map.filter (fun _ mag -> MathF.Abs mag > System.Single.Epsilon)
+            |> Map.filter (fun _ mag -> MathF.Abs mag > Single.Epsilon)
             |> Multivector<'signature>
 
         static member (-) (lhs: Multivector<'signature>, rhs: Multivector<'signature>) =
@@ -227,29 +226,29 @@ module Clifford =
                 )
                 lhs.ToMap
                 rhs.ToMap
-            |> Map.filter (fun _ mag -> MathF.Abs mag > System.Single.Epsilon)
+            |> Map.filter (fun _ mag -> MathF.Abs mag > Single.Epsilon)
             |> Multivector<'signature>
 
         ///Geometric/Clifford product
         static member (*) (lhs: Multivector<'signature>, rhs: Multivector<'signature>) =
-            Blade<'signature>.BilinearCombination 
-                Blade<'signature>.Product
+            Blade.bilinearCombination
+                Blade.product<'signature>
                 lhs.ToMap
                 rhs.ToMap
             |> Multivector<'signature>
 
         ///Dot/Inner product
         static member (.*) (lhs: Multivector<'signature>, rhs: Multivector<'signature>) =
-            Blade<'signature>.BilinearCombination 
-                Blade<'signature>.Dot
+            Blade.bilinearCombination 
+                Blade.dot<'signature>
                 lhs.ToMap
                 rhs.ToMap
             |> Multivector<'signature>
 
         ///Wedge/Outer/Exterior/Grassman product
         static member (^*) (lhs: Multivector<'signature>, rhs: Multivector<'signature>) =
-            Blade<'signature>.BilinearCombination 
-                Blade<'signature>.Wedge
+            Blade.bilinearCombination 
+                Blade.wedge<'signature>
                 lhs.ToMap
                 rhs.ToMap
             |> Multivector<'signature>
@@ -261,7 +260,7 @@ module Clifford =
         ///Grade Projection
         static member (>.) (m: Multivector<'signature>, grade: int Set) =
             Map.filter
-                (fun bld _ -> grade.Contains (Blade<'signature>.Grade bld))
+                (fun bld _ -> grade.Contains (Blade.grade bld))
                 m.ToMap
             |> Multivector<'signature>
 
@@ -294,13 +293,14 @@ module Clifford =
         static member (/) (m: Multivector<'signature>, scalar: float32) =
             (1f/scalar) * m
 
-        member this.MagSqr = (this .* this).[0uy]
+        member this.MagSqr = (this * this.Reverse).[0uy]
         member this.Mag = MathF.Sqrt this.MagSqr
         member this.Normalize =
             match this.Mag with
             | 0f -> failwith "the zero multivector cannot be normalized"
             | mag -> this / mag, mag
 
+    [<RequireQualifiedAccess>]
     module Versor =
         let inv (versor: Multivector<'signature>) = versor.Reverse / versor.MagSqr
 
@@ -348,3 +348,9 @@ module Clifford =
                 static member P = 4
                 static member Q = 1
                 static member N = 0
+
+    let v =
+        Multivector<PGA3>
+            [ 0uy, MathF.PI ]
+
+    let vDual = v.Dual.ToMap
