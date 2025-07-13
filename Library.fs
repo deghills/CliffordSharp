@@ -311,6 +311,35 @@ module Clifford =
         let project (a: Multivector<'signature>) (b: Multivector<'signature>) =
             (a .* b) * inv b
 
+        /// Exponentiate bivectors to get rotors
+        let exp (bivector: Multivector<'signature>) =
+            match sign (bivector * bivector).[0uy] with
+            | -1 ->
+                let bivectorHat, mag = bivector.Normalize
+                MathF.Cos mag + MathF.Sin mag * bivectorHat
+            | 1 ->
+                let bivectorHat, mag = bivector.Normalize
+                MathF.Cosh mag + MathF.Sinh mag * bivectorHat
+            | 0 | _ ->
+                1f + bivector
+
+        /// Take the log of rotors to get their generating bivector
+        let ln (rotor: Multivector<'signature>) =
+            let real = rotor.[0uy]
+            let bivector = rotor >. (Set.empty.Add 2)
+            match sign (bivector * bivector).[0uy] with
+            | -1 ->
+                let mag = MathF.Acos real
+                let bivectorHat =
+                    bivector / MathF.Sin bivector.Mag
+                mag * bivectorHat
+            | 1 ->
+                let mag = MathF.Acosh real
+                let bivectorHat =
+                    bivector / MathF.Sinh bivector.Mag
+                mag * bivectorHat
+            | 0 | _ -> 
+                rotor - 1f
     [<AutoOpen>]
     module Algebras =
         type VGA2 =
