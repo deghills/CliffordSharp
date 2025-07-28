@@ -8,19 +8,18 @@ module private ByteExtensions =
     type Byte with 
         member this.Item b = 1uy = ((this >>> b) &&& 1uy)
         
-    let bladeToString (this: Byte) = String [|  
-        'e'
-        for i in 0..7 do
+    let bladeToString (this: Byte) =
+        [| for i in 0..7 do
             if this[i] then
-                yield! (i + 1).ToString()
-    |]
+                yield! string (i + 1) |]
+        |> function
+            | [||] -> ""
+            | arr -> String [| 'e'; yield! arr |]
 
     let buildRepunit n =
         let rec aux acc = function
             | 1 -> (acc ||| 1uy)
-            | i ->
-                let ndecr = i - 1
-                aux (acc ||| (1uy <<< ndecr)) ndecr
+            | i -> let ndecr = i - 1 in aux (acc ||| (1uy <<< ndecr)) ndecr
         in aux n
 
     let indeces (bld: byte) =
@@ -182,6 +181,18 @@ type Multivector<'signature when 'signature :> ICliffordSignature> private (sort
                 Map.empty 
             |> Map.filter (fun _ mag -> MathF.Abs mag > Single.MinValue))
 
+    new(blades: seq<string*float32>) =
+        let basis = Signature.basisByName<'signature> in
+        let (|ValidBasis|_|) = basis.TryFind in
+        let parse = function
+            | "1" | "" -> 0uy
+            | ValidBasis bld -> bld
+            | invalidInput -> failwith $"{invalidInput} is not a valid blade in {Signature.toString<'signature>}"
+        in Multivector
+            (Seq.map
+                (fun (bld, mag) -> parse bld, mag)
+                blades)
+
     member _.ToMap = sortedBlades
     member _.ToSeq = Map.toSeq sortedBlades
     member _.ToArray = Map.toArray sortedBlades
@@ -328,16 +339,10 @@ type Multivector<'signature when 'signature :> ICliffordSignature> private (sort
 
     override this.ToString() =
         this.ToMap
-        |> Map.fold
-            (fun str bld mag ->
-                String.concat ""
-                    [|str
-                    ; (ByteExtensions.bladeToString bld)
-                    ; " = "
-                    ; (string mag)
-                    ; "\n"|])
-            ""
-
+        |> Seq.map(function
+            KeyValue (bld, mag) ->
+                $"{mag}{bladeToString bld}")
+        |> String.concat " + "
 
 [<RequireQualifiedAccess>]
 module Versor =
