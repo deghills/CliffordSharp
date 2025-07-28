@@ -167,7 +167,7 @@ type Multivector<'signature when 'signature :> ICliffordSignature> private (sort
                 
             | _ ->
                 None
-        in Multivector 
+        in Multivector<'signature>
             (blades 
             |> Seq.fold
                 (fun acc -> function
@@ -182,13 +182,12 @@ type Multivector<'signature when 'signature :> ICliffordSignature> private (sort
             |> Map.filter (fun _ mag -> MathF.Abs mag > Single.MinValue))
 
     new(blades: seq<string*float32>) =
-        let basis = Signature.basisByName<'signature> in
-        let (|ValidBasis|_|) = basis.TryFind in
+        let (|ValidBasis|_|) = Signature.basisByName<'signature>.TryFind in
         let parse = function
             | "1" | "" -> 0uy
             | ValidBasis bld -> bld
             | invalidInput -> failwith $"{invalidInput} is not a valid blade in {Signature.toString<'signature>}"
-        in Multivector
+        in Multivector<'signature>
             (Seq.map
                 (fun (bld, mag) -> parse bld, mag)
                 blades)
