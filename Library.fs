@@ -20,7 +20,7 @@ module private ByteExtensions =
             | i ->
                 let ndecr = i - 1
                 aux (acc ||| (1uy <<< ndecr)) ndecr
-        aux n
+        in aux n
 
     let indeces (bld: byte) =
         [ for i in 0..7 do
@@ -65,7 +65,7 @@ module Clifford =
                 
                 | i ->
                     aux sgn (i - 1)
-            aux 1f 7
+            in aux 1f 7
 
         let signFromSquares<'signature when 'signature :> ICliffordSignature> a b =
             potency<'signature> (a &&& b)
@@ -82,7 +82,7 @@ module Clifford =
 
                 | _ :: xs, y :: ys -> 
                     inversionCounter xs (y :: ys) acc
-
+            in
             match (inversionCounter (indeces a) (indeces b) 0) % 2 with
             | 0 -> 1f
             | _ -> -1f
@@ -93,20 +93,20 @@ module Clifford =
             uint32 >> System.Numerics.BitOperations.PopCount
 
         let dual<'signature when 'signature :> ICliffordSignature> (bld, mag) =
-            let bld' = (buildRepunit 0uy Signature.size<'signature>) ^^^ bld
-            let sign = signFromSwaps bld bld'
+            let bld' = (buildRepunit 0uy Signature.size<'signature>) ^^^ bld in
+            let sign = signFromSwaps bld bld' in
             bld', sign * mag
 
         let dualInv<'signature when 'signature :> ICliffordSignature> (bld, mag) =
-            let bld' = (buildRepunit 0uy Signature.size<'signature>) ^^^ bld
-            let sign = signFromSwaps bld' bld
+            let bld' = (buildRepunit 0uy Signature.size<'signature>) ^^^ bld in
+            let sign = signFromSwaps bld' bld in
             bld', sign * mag
 
         let product<'signature when 'signature :> ICliffordSignature> (bld1, mag1) (bld2, mag2) =
             bld1 ^^^ bld2, mag1 * mag2 * (sgn<'signature> bld1 bld2)
 
         let wedge<'signature when 'signature :> ICliffordSignature> (bld1, mag1) (bld2, mag2) =
-            let areOrthogonal a b = a &&& b = 0uy
+            let areOrthogonal a b = a &&& b = 0uy in
             if areOrthogonal bld1 bld2 then
                 product<'signature> (bld1, mag1) (bld2, mag2)
             else
@@ -116,6 +116,7 @@ module Clifford =
             let areParallel a b =
                 let aOrB = a ||| b
                 aOrB = a (*left contraction*) || aOrB = b (*right contraction*)
+            in
             if areParallel bld1 bld2 then
                 product<'signature> (bld1, mag1) (bld2, mag2)
             else
@@ -136,13 +137,12 @@ module Clifford =
                 | 0uy, mag ->
                     Some (0uy, mag)
                 
-                | bld, mag when System.Numerics.BitOperations.Log2 (uint32 bld) < Signature.size<'signature> ->
+                | bld, mag when Numerics.BitOperations.Log2 (uint32 bld) < Signature.size<'signature> ->
                     Some (bld, mag)
                 
                 | _ ->
                     None
-            
-            Multivector 
+            in Multivector 
                 (blades 
                 |> Seq.fold
                     (fun acc -> function
@@ -154,14 +154,14 @@ module Clifford =
                         | _ ->
                             failwith $"this blade is not valid for a clifford algebra of size: {Signature.size<'signature>}")
                     Map.empty 
-                |> Map.filter (fun _ mag -> MathF.Abs mag > Single.Epsilon))
+                |> Map.filter (fun _ mag -> MathF.Abs mag > Single.MinValue))
 
         member _.ToMap = sortedBlades
         member _.ToSeq = Map.toSeq sortedBlades
         member _.ToArray = Map.toArray sortedBlades
         member _.ToList = Map.toList sortedBlades
 
-        member _.Item b = (function Some mag -> mag | None -> 0f) (sortedBlades.TryFind b)
+        member _.Item b = match sortedBlades.TryFind b with Some mag -> mag | None -> 0f
 
         member _.Grade =
             Map.fold
@@ -280,14 +280,14 @@ module Clifford =
             Map.map
                 (fun _ mag -> scalar * mag)
                 m.ToMap
-            |> Map.filter (fun _ mag -> MathF.Abs mag > System.Single.Epsilon)
+            |> Map.filter (fun _ mag -> MathF.Abs mag > System.Single.MinValue)
             |> Multivector<'signature>
 
         static member (*) (m: Multivector<'signature>, scalar: float32) =
             Map.map
                 (fun _ mag -> scalar * mag)
                 m.ToMap
-            |> Map.filter (fun _ mag -> MathF.Abs mag > System.Single.Epsilon)
+            |> Map.filter (fun _ mag -> MathF.Abs mag > System.Single.MinValue)
             |> Multivector<'signature>
 
         static member (/) (m: Multivector<'signature>, scalar: float32) =
@@ -297,7 +297,7 @@ module Clifford =
         member this.Mag = MathF.Sqrt this.MagSqr
         member this.Normalize =
             match this.Mag with
-            | 0f -> failwith "the zero multivector cannot be normalized"
+            | 0f -> failwith "zero divisors cannot be normalized"
             | mag -> this / mag, mag
 
     [<RequireQualifiedAccess>]
@@ -315,10 +315,10 @@ module Clifford =
         let exp (bivector: Multivector<'signature>) =
             match sign (bivector * bivector).[0uy] with
             | -1 ->
-                let bivectorHat, mag = bivector.Normalize
+                let bivectorHat, mag = bivector.Normalize in
                 MathF.Cos mag + MathF.Sin mag * bivectorHat
             | 1 ->
-                let bivectorHat, mag = bivector.Normalize
+                let bivectorHat, mag = bivector.Normalize in
                 MathF.Cosh mag + MathF.Sinh mag * bivectorHat
             | 0 | _ ->
                 1f + bivector
@@ -326,20 +326,21 @@ module Clifford =
         /// Take the log of rotors to get their generating bivector
         let ln (rotor: Multivector<'signature>) =
             let real = rotor.[0uy]
-            let bivector = rotor >. (Set.empty.Add 2)
+            let bivector = rotor >. (Set.singleton 2)
             match sign (bivector * bivector).[0uy] with
             | -1 ->
-                let mag = MathF.Acos real
+                let mag = MathF.Acos real in
                 let bivectorHat =
                     bivector / MathF.Sin bivector.Mag
-                mag * bivectorHat
+                in mag * bivectorHat
             | 1 ->
-                let mag = MathF.Acosh real
+                let mag = MathF.Acosh real in
                 let bivectorHat =
                     bivector / MathF.Sinh bivector.Mag
-                mag * bivectorHat
+                in mag * bivectorHat
             | 0 | _ -> 
                 rotor - 1f
+
     [<AutoOpen>]
     module Algebras =
         type VGA2 =
