@@ -305,7 +305,7 @@ module Clifford =
         let inv (versor: Multivector<'signature>) = versor.Reverse / versor.MagSqr
 
         let sandwich (versor: Multivector<'signature>) (sandwiched: Multivector<'signature>) =
-            (versor * sandwiched * (inv versor)) 
+            (versor * sandwiched * inv versor)
             >. sandwiched.Grade
 
         let project (a: Multivector<'signature>) (b: Multivector<'signature>) =
