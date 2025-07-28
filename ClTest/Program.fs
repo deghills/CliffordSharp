@@ -1,4 +1,4 @@
-﻿open Clifford.Clifford
+﻿open Clifford
 
 type M = Multivector<Algebras.PGA3>
 
