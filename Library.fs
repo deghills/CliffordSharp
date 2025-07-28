@@ -342,8 +342,6 @@ module Clifford =
 
     [<RequireQualifiedAccess>]
     module Versor =
-        //let f = printfn "%multi"
-        
         let inv (versor: Multivector<'signature>) = versor.Reverse / versor.MagSqr
 
         let sandwich (versor: Multivector<'signature>) (sandwiched: Multivector<'signature>) =
