@@ -7,12 +7,13 @@ open System
 module private ByteExtensions =
     type Byte with 
         member this.Item b = 1uy = ((this >>> b) &&& 1uy)
-        member this.toBitVectorString = String [|  
-            'e'
-            for i in 0..7 do
-                if this[i] then
-                    yield! (i + 1).ToString()
-        |]
+        
+    let toBitVectorString (this: Byte) = String [|  
+        'e'
+        for i in 0..7 do
+            if this[i] then
+                yield! (i + 1).ToString()
+    |]
 
     let buildRepunit n =
         let rec aux acc = function
@@ -41,9 +42,35 @@ module Clifford =
             $"P: {'signature.P}, Q: {'signature.Q}, N: {'signature.N}"
 
         let basis<'signature when 'signature :> ICliffordSignature> =
-            [| for i in 1..size<'signature> ->
-                "e" + i.ToString(), 1uy <<< (i - 1) |]
-            // would be nice to have this make basis n-vectors for all grades, instead of just 1-vectors
+            let vectors = [| for i in 0..size<'signature> - 1 -> 1uy <<< i |] in
+            let rec build i = function
+                | allTheGrades when i = 8 ->
+                    List.fold Set.union Set.empty allTheGrades
+                    |> Seq.toArray
+
+                | lastGrade :: lastGrades ->
+                    let nextGrade =
+                        Seq.collect
+                            (fun bld1 ->
+                                Set.map
+                                    (fun bld2 -> bld1 ||| bld2)
+                                    lastGrade)
+                            vectors
+                        |> Set
+                    in build (i + 1) (nextGrade :: lastGrade :: lastGrades)
+
+                | [] -> build (i + 1) ((Set.ofArray >> List.singleton) vectors)
+            in build 0 []
+
+        let basisByName<'signature when 'signature :> ICliffordSignature> =
+            basis<'signature>
+            |> Seq.map (fun bld -> ByteExtensions.toBitVectorString bld, bld)
+            |> Map
+
+        let basisByGrade<'signature when 'signature :> ICliffordSignature> =
+            basis<'signature>
+            |> Array.groupBy (uint32 >> Numerics.BitOperations.PopCount)
+            |> Map
 
     [<RequireQualifiedAccess>]
     module Blade =
