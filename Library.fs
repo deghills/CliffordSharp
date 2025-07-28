@@ -8,7 +8,7 @@ module private ByteExtensions =
     type Byte with 
         member this.Item b = 1uy = ((this >>> b) &&& 1uy)
         
-    let toBitVectorString (this: Byte) = String [|  
+    let bladeToString (this: Byte) = String [|  
         'e'
         for i in 0..7 do
             if this[i] then
@@ -64,7 +64,7 @@ module Clifford =
 
         let basisByName<'signature when 'signature :> ICliffordSignature> =
             basis<'signature>
-            |> Seq.map (fun bld -> ByteExtensions.toBitVectorString bld, bld)
+            |> Seq.map (fun bld -> ByteExtensions.bladeToString bld, bld)
             |> Map
 
         let basisByGrade<'signature when 'signature :> ICliffordSignature> =
@@ -327,8 +327,23 @@ module Clifford =
             | 0f -> failwith "zero divisors cannot be normalized"
             | mag -> this / mag, mag
 
+        override this.ToString() =
+            this.ToMap
+            |> Map.fold
+                (fun str bld mag ->
+                    String.concat ""
+                        [|str
+                        ; (ByteExtensions.bladeToString bld)
+                        ; " = "
+                        ; (string mag)
+                        ; "\n"|])
+                ""
+
+
     [<RequireQualifiedAccess>]
     module Versor =
+        //let f = printfn "%multi"
+        
         let inv (versor: Multivector<'signature>) = versor.Reverse / versor.MagSqr
 
         let sandwich (versor: Multivector<'signature>) (sandwiched: Multivector<'signature>) =
