@@ -377,9 +377,3 @@ module Clifford =
                 static member P = 4
                 static member Q = 1
                 static member N = 0
-
-    let v =
-        Multivector<PGA3>
-            [ 0uy, MathF.PI ]
-
-    let vDual = v.Dual.ToMap
