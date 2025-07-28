@@ -195,10 +195,10 @@ module Clifford =
         static member (~+) (m: Multivector<'signature>) = m
 
         static member (~-) (m: Multivector<'signature>) =
-            Multivector
-                (Map.map 
-                    (fun _ mag -> -mag) 
-                    m.ToMap)
+            Map.map
+                (fun _ mag -> -mag) 
+                m.ToMap
+            |> Multivector<'signature>
 
         static member (+) (lhs: Multivector<'signature>, rhs: Multivector<'signature>) =
             Map.fold
