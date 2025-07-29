@@ -115,7 +115,7 @@ module Blade =
     let sgn<'signature when 'signature :> ICliffordSignature> a b = (signFromSquares<'signature> a b) * (signFromSwaps a b)
 
     let grade : byte -> int =
-        uint32 >> System.Numerics.BitOperations.PopCount
+        uint32 >> Numerics.BitOperations.PopCount
 
     let dual<'signature when 'signature :> ICliffordSignature> (bld, mag) =
         let bld' = (buildRepunit 0uy Signature.size<'signature>) ^^^ bld in
@@ -179,7 +179,7 @@ type Multivector<'signature when 'signature :> ICliffordSignature> private (sort
                     | _ ->
                         failwith $"this blade is not valid for a clifford algebra of size: {Signature.size<'signature>}")
                 Map.empty 
-            |> Map.filter (fun _ mag -> MathF.Abs mag > Single.MinValue))
+            |> Map.filter (fun _ mag -> mag <> 0f))
 
     new(blades: seq<string*float32>) =
         let (|ValidBasis|_|) = Signature.basisByName<'signature>.TryFind in
@@ -246,7 +246,7 @@ type Multivector<'signature when 'signature :> ICliffordSignature> private (sort
             )
             lhs.ToMap
             rhs.ToMap
-        |> Map.filter (fun _ mag -> MathF.Abs mag > Single.MinValue)
+        |> Map.filter (fun _ mag -> mag <> 0f)
         |> Multivector<'signature>
 
     static member (-) (lhs: Multivector<'signature>, rhs: Multivector<'signature>) =
@@ -262,7 +262,7 @@ type Multivector<'signature when 'signature :> ICliffordSignature> private (sort
             )
             lhs.ToMap
             rhs.ToMap
-        |> Map.filter (fun _ mag -> MathF.Abs mag > Single.MinValue)
+        |> Map.filter (fun _ mag -> mag <> 0f)
         |> Multivector<'signature>
 
     ///Geometric/Clifford product
@@ -316,14 +316,14 @@ type Multivector<'signature when 'signature :> ICliffordSignature> private (sort
         Map.map
             (fun _ mag -> scalar * mag)
             m.ToMap
-        |> Map.filter (fun _ mag -> MathF.Abs mag > System.Single.MinValue)
+        |> Map.filter (fun _ mag -> mag <> 0f)
         |> Multivector<'signature>
 
     static member (*) (m: Multivector<'signature>, scalar: float32) =
         Map.map
             (fun _ mag -> scalar * mag)
             m.ToMap
-        |> Map.filter (fun _ mag -> MathF.Abs mag > System.Single.MinValue)
+        |> Map.filter (fun _ mag -> mag <> 0f)
         |> Multivector<'signature>
 
     static member (/) (m: Multivector<'signature>, scalar: float32) =
