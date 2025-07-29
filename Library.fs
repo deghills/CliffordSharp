@@ -246,7 +246,7 @@ type Multivector<'signature when 'signature :> ICliffordSignature> private (sort
             )
             lhs.ToMap
             rhs.ToMap
-        |> Map.filter (fun _ mag -> MathF.Abs mag > Single.Epsilon)
+        |> Map.filter (fun _ mag -> MathF.Abs mag > Single.MinValue)
         |> Multivector<'signature>
 
     static member (-) (lhs: Multivector<'signature>, rhs: Multivector<'signature>) =
@@ -262,7 +262,7 @@ type Multivector<'signature when 'signature :> ICliffordSignature> private (sort
             )
             lhs.ToMap
             rhs.ToMap
-        |> Map.filter (fun _ mag -> MathF.Abs mag > Single.Epsilon)
+        |> Map.filter (fun _ mag -> MathF.Abs mag > Single.MinValue)
         |> Multivector<'signature>
 
     ///Geometric/Clifford product
