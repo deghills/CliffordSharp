@@ -4,6 +4,11 @@
 open System
 
 [<AutoOpen>]
+module Utils =
+    let pi = System.Math.PI
+    let tau = System.Math.Tau
+
+[<AutoOpen>]
 module private ByteExtensions =
     type Byte with 
         member this.Item b = 1uy = ((this >>> b) &&& 1uy)
@@ -72,7 +77,7 @@ module Signature =
 
 [<RequireQualifiedAccess>]
 module Blade =
-    let zero = 0uy, 0f
+    let zero = 0uy, 0.0
 
     let potency<'signature when 'signature :> ICliffordSignature> (bld: byte) =
         let rec aux sgn = function
@@ -83,14 +88,14 @@ module Blade =
                 sgn
                 
             | i when bld[i] && 'signature.P <= i && i < 'signature.P + 'signature.Q ->
-                aux (sgn * -1f) (i - 1)
+                aux (sgn * -1.0) (i - 1)
                 
             | i when bld[i] && i >= 'signature.P + 'signature.Q ->
-                aux 0f (i - 1)
+                aux 0.0 (i - 1)
                 
             | i ->
                 aux sgn (i - 1)
-        in aux 1f 7
+        in aux 1.0 7
 
     let signFromSquares<'signature when 'signature :> ICliffordSignature> a b =
         potency<'signature> (a &&& b)
@@ -109,8 +114,8 @@ module Blade =
                 inversionCounter xs (y :: ys) acc
         in
         match (inversionCounter (indeces a) (indeces b) 0) % 2 with
-        | 0 -> 1f
-        | _ -> -1f
+        | 0 -> 1.0
+        | _ -> -1.0
 
     let sgn<'signature when 'signature :> ICliffordSignature> a b = (signFromSquares<'signature> a b) * (signFromSwaps a b)
 
@@ -139,7 +144,7 @@ module Blade =
 
     let dot<'signature when 'signature :> ICliffordSignature> (bld1, mag1) (bld2, mag2) =
         let areParallel a b =
-            let aOrB = a ||| b
+            let aOrB = a ||| b in
             aOrB = a (*left contraction*) || aOrB = b (*right contraction*)
         in
         if areParallel bld1 bld2 then
@@ -156,8 +161,8 @@ module Blade =
                     b)
             a
 
-type Multivector<'signature when 'signature :> ICliffordSignature> private (sortedBlades: Map<byte, float32>) =
-    new (blades: seq<byte*float32>) =
+type Multivector<'signature when 'signature :> ICliffordSignature> private (sortedBlades: Map<byte, float>) =
+    new (blades: seq<byte*float>) =
         let (|ValidBlade|_|) = function
             | 0uy, mag ->
                 Some (0uy, mag)
@@ -179,9 +184,9 @@ type Multivector<'signature when 'signature :> ICliffordSignature> private (sort
                     | _ ->
                         failwith $"this blade is not valid for a clifford algebra of size: {Signature.size<'signature>}")
                 Map.empty 
-            |> Map.filter (fun _ mag -> mag <> 0f))
+            |> Map.filter (fun _ mag -> mag <> 0))
 
-    new(blades: seq<string*float32>) =
+    new(blades: seq<string*float>) =
         let (|ValidBasis|_|) = Signature.basisByName<'signature>.TryFind in
         let parse = function
             | "1" | "" -> 0uy
@@ -197,7 +202,7 @@ type Multivector<'signature when 'signature :> ICliffordSignature> private (sort
     member _.ToArray = Map.toArray sortedBlades
     member _.ToList = Map.toList sortedBlades
 
-    member _.Item b = match sortedBlades.TryFind b with Some mag -> mag | None -> 0f
+    member _.Item b = match sortedBlades.TryFind b with Some mag -> mag | None -> 0.0
 
     member _.Grade =
         Map.fold
@@ -246,7 +251,7 @@ type Multivector<'signature when 'signature :> ICliffordSignature> private (sort
             )
             lhs.ToMap
             rhs.ToMap
-        |> Map.filter (fun _ mag -> mag <> 0f)
+        |> Map.filter (fun _ mag -> mag <> 0.0)
         |> Multivector<'signature>
 
     static member (-) (lhs: Multivector<'signature>, rhs: Multivector<'signature>) =
@@ -262,7 +267,7 @@ type Multivector<'signature when 'signature :> ICliffordSignature> private (sort
             )
             lhs.ToMap
             rhs.ToMap
-        |> Map.filter (fun _ mag -> mag <> 0f)
+        |> Map.filter (fun _ mag -> mag <> 0.0)
         |> Multivector<'signature>
 
     ///Geometric/Clifford product
@@ -300,89 +305,92 @@ type Multivector<'signature when 'signature :> ICliffordSignature> private (sort
             m.ToMap
         |> Multivector<'signature>
 
-    static member (+) (scalar: float32, m: Multivector<'signature>) =
+    static member (+) (scalar: float, m: Multivector<'signature>) =
         Multivector [|0uy, scalar|] + m
 
-    static member (+) (m: Multivector<'signature>, scalar: float32) =
+    static member (+) (m: Multivector<'signature>, scalar: float) =
         Multivector [|0uy, scalar|] + m
 
-    static member (-) (scalar: float32, m: Multivector<'signature>) =
+    static member (-) (scalar: float, m: Multivector<'signature>) =
         Multivector [|0uy, scalar|] - m
         
-    static member (-) (m: Multivector<'signature>, scalar: float32) =
+    static member (-) (m: Multivector<'signature>, scalar: float) =
         m - Multivector [|0uy, scalar|]
 
-    static member (*) (scalar: float32, m: Multivector<'signature>) =
+    static member (*) (scalar: float, m: Multivector<'signature>) =
         Map.map
             (fun _ mag -> scalar * mag)
             m.ToMap
-        |> Map.filter (fun _ mag -> mag <> 0f)
+        |> Map.filter (fun _ mag -> mag <> 0.0)
         |> Multivector<'signature>
 
-    static member (*) (m: Multivector<'signature>, scalar: float32) =
+    static member (*) (m: Multivector<'signature>, scalar: float) =
         Map.map
             (fun _ mag -> scalar * mag)
             m.ToMap
-        |> Map.filter (fun _ mag -> mag <> 0f)
+        |> Map.filter (fun _ mag -> mag <> 0.0)
         |> Multivector<'signature>
 
-    static member (/) (m: Multivector<'signature>, scalar: float32) =
-        (1f/scalar) * m
+    static member (/) (m: Multivector<'signature>, scalar: float) =
+        (1.0/scalar) * m
 
     member this.MagSqr = (this * this.Reverse).[0uy]
-    member this.Mag = MathF.Sqrt this.MagSqr
+    member this.Mag = sqrt this.MagSqr
     member this.Normalize =
         match this.Mag with
-        | 0f -> failwith "zero divisors cannot be normalized"
+        | 0.0 -> failwith "zero divisors cannot be normalized"
         | mag -> this / mag, mag
 
     override this.ToString() =
         this.ToMap
-        |> Seq.map(function
+        |> Seq.map (function
             KeyValue (bld, mag) ->
                 $"{mag}{bladeToString bld}")
         |> String.concat " + "
 
 [<RequireQualifiedAccess>]
 module Versor =
-    let inv (versor: Multivector<'signature>) = versor.Reverse / versor.MagSqr
+    let inv (versor: Multivector<#ICliffordSignature>) = versor.Reverse / versor.MagSqr
 
-    let sandwich (versor: Multivector<'signature>) (sandwiched: Multivector<'signature>) =
+    let sandwich (versor: Multivector<#ICliffordSignature>) (sandwiched: Multivector<#ICliffordSignature>) =
         (versor * sandwiched * inv versor)
         >. sandwiched.Grade
 
-    let project (a: Multivector<'signature>) (b: Multivector<'signature>) =
+    let project (a: Multivector<#ICliffordSignature>) (b: Multivector<#ICliffordSignature>) =
         (a .* b) * inv b
 
     /// Exponentiate bivectors to get rotors
-    let exp (bivector: Multivector<'signature>) =
+    let exp (bivector: Multivector<#ICliffordSignature>) =
         match sign (bivector * bivector).[0uy] with
         | -1 ->
             let bivectorHat, mag = bivector.Normalize in
-            MathF.Cos mag + MathF.Sin mag * bivectorHat
+            Math.Cos mag + Math.Sin mag * bivectorHat
         | 1 ->
             let bivectorHat, mag = bivector.Normalize in
-            MathF.Cosh mag + MathF.Sinh mag * bivectorHat
+            Math.Cosh mag + Math.Sinh mag * bivectorHat
         | 0 | _ ->
-            1f + bivector
+            1.0 + bivector
 
     /// Take the log of rotors to get their generating bivector
-    let ln (rotor: Multivector<'signature>) =
+    let ln (rotor: Multivector<#ICliffordSignature>) =
         let real = rotor.[0uy]
         let bivector = rotor >. (Set.singleton 2)
         match sign (bivector * bivector).[0uy] with
         | -1 ->
-            let mag = MathF.Acos real in
+            let mag = Math.Acos real in
             let bivectorHat =
-                bivector / MathF.Sin bivector.Mag
+                fst bivector.Normalize
             in mag * bivectorHat
         | 1 ->
-            let mag = MathF.Acosh real in
+            let mag = Math.Acosh real in
             let bivectorHat =
-                bivector / MathF.Sinh bivector.Mag
+                fst bivector.Normalize
             in mag * bivectorHat
-        | 0 | _ -> 
-            rotor - 1f
+        | 0 | _ ->
+            rotor - 1.0
+
+    let interpolate (t: float) (rotor: Multivector<#ICliffordSignature>) =
+        exp (t * ln rotor)
 
 [<AutoOpen>]
 module Algebras =
