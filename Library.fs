@@ -4,7 +4,7 @@
 open System
 
 [<AutoOpen>]
-module Utils =
+module private Utils =
     let pi = System.Math.PI
     let tau = System.Math.Tau
 
