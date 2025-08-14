@@ -1,4 +1,4 @@
-﻿namespace Clifford
+﻿module Clifford 
 
 #nowarn 3535
 open System
