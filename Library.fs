@@ -394,38 +394,53 @@ module Versor =
 
 [<AutoOpen>]
 module Algebras =
-    type VGA2 =
-        interface ICliffordSignature with
-            static member P = 2
-            static member Q = 0
-            static member N = 0
+    module VGA2 =
+        type signature =
+            interface ICliffordSignature with
+                static member P = 2
+                static member Q = 0
+                static member N = 0
 
-    type VGA3 =
-        interface ICliffordSignature with
-            static member P = 3
-            static member Q = 0
-            static member N = 0
+        type multivector = Multivector<signature>
 
-    type PGA2 =
-        interface ICliffordSignature with
-            static member P = 2
-            static member Q = 0
-            static member N = 1
+        let ex, ey = 0b01uy, 0b10uy
+        let exy = 0b11uy
 
-    type PGA3 =
-        interface ICliffordSignature with
-            static member P = 3
-            static member Q = 0
-            static member N = 1
+    module VGA3 =
+        type signature =
+            interface ICliffordSignature with
+                static member P = 3
+                static member Q = 0
+                static member N = 0
 
-    type CGA2 =
-        interface ICliffordSignature with
-            static member P = 3
-            static member Q = 1
-            static member N = 0
+        type multivector = Multivector<signature>
 
-    type CGA3 =
-        interface ICliffordSignature with
-            static member P = 4
-            static member Q = 1
-            static member N = 0
+        let ex, ey, ez = 0b001uy, 0b010uy, 0b100uy
+        let exy, eyx, exz = 0b011uy, 0b110uy, 0b101uy
+        let exyz = 0b111uy
+
+    module PGA2 =
+        type signature =
+            interface ICliffordSignature with
+                static member P = 2
+                static member Q = 0
+                static member N = 1
+
+        type multivector = Multivector<signature>
+
+        let ex, ey, e0 = 0b001uy, 0b010uy, 0b100uy
+        let exy, ey0, ex0 = 0b011uy, 0b110uy, 0b101uy
+        let exy0 = 0b111uy
+
+    module PGA3 =
+        type signature =
+            interface ICliffordSignature with
+                static member P = 3
+                static member Q = 0
+                static member N = 1
+
+        type multivector = Multivector<signature>
+
+        let ex, ey, ez, e0 = 0b0001uy, 0b0010uy, 0b0100uy, 0b1000uy
+        let exy, eyz, exz = ex ^^^ ey, ey ^^^ ez, ex ^^^ ez
+        //more
