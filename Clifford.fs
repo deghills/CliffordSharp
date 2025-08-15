@@ -3,10 +3,8 @@
 #nowarn 3535
 open System
 
-[<AutoOpen>]
-module private Utils =
-    let pi = System.Math.PI
-    let tau = System.Math.Tau
+let pi = System.Math.PI
+let tau = System.Math.Tau
 
 [<AutoOpen>]
 module private ByteExtensions =
