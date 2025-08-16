@@ -184,17 +184,6 @@ type Multivector<'signature when 'signature :> ICliffordSignature> private (sort
                 Map.empty 
             |> Map.filter (fun _ mag -> mag <> 0))
 
-    new(blades: seq<string*float>) =
-        let (|ValidBasis|_|) = Signature.basisByName<'signature>.TryFind in
-        let parse = function
-            | "1" | "" -> 0uy
-            | ValidBasis bld -> bld
-            | invalidInput -> failwith $"{invalidInput} is not a valid blade in {Signature.toString<'signature>}"
-        in Multivector<'signature>
-            (Seq.map
-                (fun (bld, mag) -> parse bld, mag)
-                blades)
-
     member _.ToMap = sortedBlades
     member _.ToSeq = Map.toSeq sortedBlades
     member _.ToArray = Map.toArray sortedBlades
@@ -259,10 +248,8 @@ type Multivector<'signature when 'signature :> ICliffordSignature> private (sort
                     bld
                     (function 
                         | None -> Some -magRight 
-                        | Some magLeft -> Some (magLeft - magRight)
-                    )
-                    acc
-            )
+                        | Some magLeft -> Some (magLeft - magRight))
+                    acc)
             lhs.ToMap
             rhs.ToMap
         |> Map.filter (fun _ mag -> mag <> 0.0)
@@ -414,7 +401,7 @@ module Algebras =
         type multivector = Multivector<signature>
 
         let ex, ey, ez = 0b001uy, 0b010uy, 0b100uy
-        let exy, eyx, exz = 0b011uy, 0b110uy, 0b101uy
+        let exy, eyz, exz = ex ^^^ ey, ey ^^^ ez, ex ^^^ ez
         let exyz = 0b111uy
 
     module PGA2 =
@@ -427,7 +414,7 @@ module Algebras =
         type multivector = Multivector<signature>
 
         let ex, ey, e0 = 0b001uy, 0b010uy, 0b100uy
-        let exy, ey0, ex0 = 0b011uy, 0b110uy, 0b101uy
+        let exy, ey0, ex0 = ex ^^^ ey, ey ^^^ e0, ex ^^^ e0
         let exy0 = 0b111uy
 
     module PGA3 =
@@ -441,4 +428,50 @@ module Algebras =
 
         let ex, ey, ez, e0 = 0b0001uy, 0b0010uy, 0b0100uy, 0b1000uy
         let exy, eyz, exz = ex ^^^ ey, ey ^^^ ez, ex ^^^ ez
-        //more
+        let ex0, ey0, ez0 = ex ^^^ e0, ey ^^^ e0, ez ^^^ e0
+        let exyz, exy0, eyz0, exz0
+            = ex ^^^ ey ^^^ ez
+            , ex ^^^ ey ^^^ e0
+            , ey ^^^ ez ^^^ e0
+            , ex ^^^ ez ^^^ e0
+
+    module CGA2 =
+        type signature =
+            interface ICliffordSignature with
+                static member P = 3
+                static member Q = 1
+                static member N = 0
+
+        type multivector = Multivector<signature>
+        
+        let ex, ey = 0b0001uy, 0b0010uy
+        let ep, em = 0b0100uy, 0b1000uy
+        let exy, epm = ex ^^^ ey, ep ^^^ em
+        let exp, exm = ex ^^^ ep, ex ^^^ em
+        let eyp, eym = ey ^^^ ep, ey ^^^ em
+        let exyp, exym = exy ^^^ ep, exy ^^^ em
+        let expm, eypm = ex ^^^ epm, ey ^^^ epm
+        let exypm = 0b1111uy
+
+    module CGA3 =
+        type signature =
+            interface ICliffordSignature with
+                static member P = 4
+                static member Q = 1
+                static member N = 0
+
+        type multivector = Multivector<signature>
+
+        let ex, ey, ez = 0b00001uy, 0b00010uy, 0b00100uy
+        let eplus, eminus = 0b01000uy, 0b10000uy
+        let exy, eyz, exz, eplusminus = ex ^^^ ey, ey ^^^ ez, ex ^^^ ez, eplus ^^^ eminus
+        let explus, eyplus, ezplus = ex ^^^ eplus, ey ^^^ eplus, ez ^^^ eplus
+        let exminus, eyminus, ezminus = ex ^^^ eminus, ey ^^^ eminus, ez ^^^ eminus
+        let exyz = exy ^^^ ez
+        let exyplus, eyzplus, exzplus = exy ^^^ eplus, eyz ^^^ eplus, exz ^^^ eplus
+        let exyminus, eyzminus, exzminus = exy ^^^ eminus, eyz ^^^ eminus, exz ^^^ eminus
+        let explusminus, eyplusminus, ezplusminus = ex ^^^ eplusminus, ey ^^^ eplusminus, ez ^^^ eplusminus
+        let exyplusminus, eyzplusminus, exzplusminus = exy ^^^ eplusminus, eyz ^^^ eplusminus, exz ^^^ eplusminus
+        let exyzplus, exyzminus = exyz ^^^ eplus, exyz ^^^ eminus
+        let exyzplusminus = exyzplus ^^^ eminus
+        let e0 = multivector [eplus, 1.0; eminus, 1.0]
